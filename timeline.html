@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Litigation Timeline</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#0f1115;
+      --card:#171a22;
+      --track:#f4a340;
+      --track2:#ffcc80;
+      --accent:#ff824d;
+      --text:#eef1f7;
+      --muted:#b6becf;
+      --good:#64d2ff;
+      --shadow:0 10px 30px rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      background:radial-gradient(1200px 600px at 80% -100px, #1b2030 0%, transparent 60%),
+                 linear-gradient(180deg, #0d1016 0%, #0f1115 100%);
+      color:var(--text);
+    }
+    .wrap{max-width:1100px;margin:48px auto;padding:0 20px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:22px}
+    h1{font-weight:800;letter-spacing:.2px;font-size:28px;margin:0}
+    .controls{display:flex;flex-wrap:wrap;gap:10px}
+    .control{
+      background:var(--card);border:1px solid #242A38;color:var(--text);
+      padding:10px 12px;border-radius:14px;box-shadow:var(--shadow);
+      display:flex;align-items:center;gap:8px
+    }
+    input[type="date"], input[type="text"]{background:transparent;border:none;color:var(--text);outline:none}
+    .btn{cursor:pointer;background:linear-gradient(180deg,var(--track) 0%,var(--track2) 100%);color:#1b1206;border:none;padding:10px 14px;border-radius:12px;font-weight:700}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+
+    /* Card container */
+    .card{background:var(--card);border:1px solid #23293a;border-radius:18px;padding:18px 18px;box-shadow:var(--shadow)}
+
+    /* Timeline canvas */
+    .timeline{position:relative;padding:50px 12px 70px 12px}
+    .track{
+      position:relative;height:22px;border-radius:999px;background:linear-gradient(90deg,var(--track) 0%, var(--track2) 100%);
+      box-shadow:inset 0 -2px 0 rgba(0,0,0,.15), 0 6px 20px rgba(0,0,0,.25);
+    }
+    .track::before, .track::after{
+      content:"";position:absolute;top:50%;transform:translateY(-50%);
+      width:10px;height:10px;border-radius:50%;background:#fff;opacity:.25
+    }
+    .track::before{left:-4px}
+    .track::after{right:-4px}
+
+    /* Ticks */
+    .ticks{position:relative; height:30px}
+    .tick{position:absolute; top:8px; width:1px; height:14px; background:#ffffff2a}
+    .tick span{position:absolute; top:18px; transform:translateX(-50%); font-size:12px; color:var(--muted)}
+
+    /* Items */
+    .items{position:relative}
+    .item{position:absolute; transform:translateX(-50%); width:220px; max-width:28vw}
+    .dot{position:absolute; left:50%; transform:translate(-50%, -6px); top:0; width:10px;height:10px;border-radius:50%;background:#fff;border:3px solid var(--accent);box-shadow:0 2px 8px rgba(0,0,0,.4)}
+    .flag{
+      position:relative; margin-top:18px; background:#1b2030;border:1px solid #2a3144; border-radius:14px; padding:12px 12px 12px 12px;
+      box-shadow:0 8px 20px rgba(0,0,0,.35)
+    }
+    .flag .date{font-size:12px; color:var(--muted); font-weight:600; letter-spacing:.2px}
+    .flag .title{margin-top:4px; font-weight:700; line-height:1.3}
+    .flag .actions{margin-top:8px; display:flex; gap:10px; flex-wrap:wrap}
+    .pill{font-size:12px; font-weight:700; padding:6px 8px; border-radius:999px; border:1px solid #2a3144; color:var(--good); cursor:pointer; background:transparent}
+    .pill:hover{border-color:#3d4761}
+
+    /* Alternate above/below layout on larger screens */
+    @media (min-width:700px){
+      .item.above .flag{margin-top:-110px}
+      .item.above .dot{top:-88px}
+      .item.below .flag{margin-top:18px}
+    }
+
+    /* Modal */
+    dialog#evidenceModal{border:none;border-radius:18px;padding:0;max-width:min(90vw, 900px);box-shadow:var(--shadow);background:#0c0f16}
+    dialog[open]{animation:fadeIn .18s ease-out}
+    @keyframes fadeIn{from{opacity:0;transform:scale(.98)} to{opacity:1;transform:scale(1)}}
+    .modal-header{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #1f2534;background:#141926}
+    .modal-header h3{margin:0;font-size:16px}
+    .modal-body{padding:10px;background:#0c0f16}
+    .modal-body img{max-width:100%;height:auto;display:block;border-bottom-left-radius:18px;border-bottom-right-radius:18px}
+    .iconbtn{background:#20283a;color:#c9d3ea;border:1px solid #2b3650;border-radius:10px;padding:6px 10px;cursor:pointer;font-weight:700}
+    .modal-footer{display:flex;justify-content:flex-end;gap:10px;padding:12px 14px;border-top:1px solid #1f2534;background:#0c0f16}
+
+    /* Empty state */
+    .empty{color:var(--muted);text-align:center;padding:28px}
+
+    a.inline{color:#87c7ff;text-decoration:none;border-bottom:1px dotted #87c7ff}
+    a.inline:hover{opacity:.85}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Litigation Timeline</h1>
+      <div class="controls">
+        <div class="control" title="Filter by text">
+          🔎 <input id="q" type="text" placeholder="Search description…" />
+        </div>
+        <div class="control" title="Start date filter">
+          📅 <input id="start" type="date" />
+        </div>
+        <div class="control" title="End date filter">
+          📅 <input id="end" type="date" />
+        </div>
+        <button class="btn" id="reset">Reset</button>
+      </div>
+    </header>
+
+    <div class="card">
+      <div class="timeline">
+        <div class="ticks" id="ticks"></div>
+        <div class="track"></div>
+        <div class="items" id="items"></div>
+      </div>
+      <div id="empty" class="empty" hidden>No items found. Adjust your filters.</div>
+    </div>
+
+    <p style="color:var(--muted);margin-top:14px;font-size:12px">Data source: Google Sheet → columns required: <strong>Date</strong>, <strong>Description</strong>, <strong>EvidenceLink</strong>. Supports any date format Google Sheets recognizes. Rows with missing Date are ignored.</p>
+
+  </div>
+
+  <!-- Modal for evidence images -->
+  <dialog id="evidenceModal" aria-labelledby="evidenceTitle">
+    <div class="modal-header">
+      <h3 id="evidenceTitle">Evidence</h3>
+      <button class="iconbtn" id="closeModal" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <img id="evidenceImg" alt="Evidence image" />
+    </div>
+    <div class="modal-footer">
+      <a id="openInNew" class="iconbtn" target="_blank" rel="noopener">Open in new tab</a>
+    </div>
+  </dialog>
+
+  <script>
+    /************************************
+     *  CONFIG
+     *  Choose either API mode (recommended) OR CSV publish mode.
+     ************************************/
+    const CONFIG = {
+      mode: 'api', // 'api' | 'csv'
+
+      // =============== API mode ===============
+      SHEET_ID: '1fL-jFMsPJGHaM0M-KuT-3FEQ_gpzL8zSenNZWoImcKU',   // e.g. 1aBcdEfGhIJkLmNoPqRstuVWxyz12345
+      API_KEY: 'AIzaSyD-Pld1_Lef3N8bqwU6DVkqkDja73fnY2E',     // create in Google Cloud → enable Sheets API
+      RANGE: 'Sheet1!A:C',              // adjust if your columns are elsewhere
+
+      // =============== CSV publish mode (alternative) ===============
+      // After "File → Share → Publish to web" on your Sheet, paste the CSV link below.
+      PUBLISHED_CSV_URL: ''
+    };
+
+    // Small helper: parse various date strings reliably
+    function toDate(v){
+      if(v instanceof Date) return v;
+      // If Google returns serial numbers (rare when using CSV), convert from Excel serial date
+      if(/^\d{4}-\d{2}-\d{2}/.test(v)) return new Date(v);
+      if(/^\d+(?:\.\d+)?$/.test(v)){
+        const serial = parseFloat(v);
+        const base = new Date(Date.UTC(1899,11,30));
+        base.setUTCDate(base.getUTCDate() + Math.floor(serial));
+        return base;
+      }
+      const d = new Date(v);
+      return isNaN(d) ? null : d;
+    }
+
+    async function fetchRows(){
+      if(CONFIG.mode === 'api'){
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${encodeURIComponent(CONFIG.RANGE)}?key=${CONFIG.API_KEY}`;
+        const r = await fetch(url);
+        if(!r.ok) throw new Error('Sheets API request failed');
+        const data = await r.json();
+        const [header, ...rows] = data.values || [];
+        if(!header) return [];
+        const idx = {
+          Date: header.findIndex(h=>/date/i.test(h)),
+          Description: header.findIndex(h=>/desc/i.test(h)),
+          EvidenceLink: header.findIndex(h=>/evidence/i.test(h))
+        };
+        return rows.map(r=>({
+          Date: r[idx.Date] || '',
+          Description: r[idx.Description] || '',
+          EvidenceLink: r[idx.EvidenceLink] || ''
+        }));
+      } else {
+        if(!CONFIG.PUBLISHED_CSV_URL) return [];
+        const r = await fetch(CONFIG.PUBLISHED_CSV_URL);
+        const text = await r.text();
+        // Minimal CSV parser (assumes no embedded commas in quoted fields for simplicity)
+        const lines = text.split(/\r?\n/).filter(Boolean);
+        const header = lines.shift().split(',');
+        const idx = {
+          Date: header.findIndex(h=>/date/i.test(h)),
+          Description: header.findIndex(h=>/desc/i.test(h)),
+          EvidenceLink: header.findIndex(h=>/evidence/i.test(h))
+        };
+        return lines.map(line=>{
+          const parts = line.split(',');
+          return {
+            Date: parts[idx.Date] || '',
+            Description: parts[idx.Description] || '',
+            EvidenceLink: parts[idx.EvidenceLink] || ''
+          }
+        });
+      }
+    }
+
+    function buildTimeline(raw){
+      // Clean & sort
+      const items = raw.map(r=>({
+          date: toDate(r.Date),
+          desc: (r.Description||'').trim(),
+          link: (r.EvidenceLink||'').trim()
+        }))
+        .filter(x=>x.date)
+        .sort((a,b)=>a.date - b.date);
+
+      const q = document.getElementById('q').value.trim().toLowerCase();
+      const start = document.getElementById('start').value ? new Date(document.getElementById('start').value) : null;
+      const end = document.getElementById('end').value ? new Date(document.getElementById('end').value) : null;
+
+      const filtered = items.filter(x=>{
+        const okQ = !q || x.desc.toLowerCase().includes(q);
+        const okS = !start || x.date >= start;
+        const okE = !end || x.date <= end;
+        return okQ && okS && okE;
+      });
+
+      const container = document.getElementById('items');
+      const ticks = document.getElementById('ticks');
+      const empty = document.getElementById('empty');
+      container.innerHTML = '';
+      ticks.innerHTML = '';
+
+      if(filtered.length === 0){ empty.hidden = false; return; }
+      empty.hidden = true;
+
+      const min = filtered[0].date;
+      const max = filtered[filtered.length-1].date;
+      const span = Math.max(1, (max - min));
+      const pct = d => ( (d - min) / span ) * 100;
+
+      // Year ticks
+      const y0 = min.getFullYear();
+      const y1 = max.getFullYear();
+      for(let y=y0; y<=y1; y++){
+        const pos = pct(new Date(y,0,1));
+        const t = document.createElement('div');
+        t.className='tick'; t.style.left = Math.min(100, Math.max(0, pos)) + '%';
+        const label = document.createElement('span');
+        label.textContent = y;
+        t.appendChild(label);
+        ticks.appendChild(t);
+      }
+
+      // Items
+      filtered.forEach((ev, i)=>{
+        const x = Math.min(100, Math.max(0, pct(ev.date)));
+        const item = document.createElement('div');
+        item.className = 'item ' + (i%2===0 ? 'above' : 'below');
+        item.style.left = x + '%';
+
+        const dot = document.createElement('div'); dot.className = 'dot';
+        const flag = document.createElement('div'); flag.className = 'flag';
+
+        const d = document.createElement('div'); d.className='date';
+        d.textContent = ev.date.toLocaleDateString(undefined, {year:'numeric', month:'short', day:'2-digit'});
+        const title = document.createElement('div'); title.className='title'; title.textContent = ev.desc || '(No description)';
+
+        flag.appendChild(d); flag.appendChild(title);
+
+        const actions = document.createElement('div'); actions.className='actions';
+        const copyBtn = document.createElement('button');
+        copyBtn.className='pill'; copyBtn.textContent='Copy date';
+        copyBtn.addEventListener('click',()=>{
+          navigator.clipboard.writeText(d.textContent)
+        });
+        actions.appendChild(copyBtn);
+
+        if(ev.link){
+          const a = document.createElement('a'); a.href = '#'; a.className='pill'; a.textContent='View evidence';
+          a.addEventListener('click', (e)=>{e.preventDefault(); openEvidence(ev.link, ev.desc, d.textContent);});
+          actions.appendChild(a);
+        }
+        flag.appendChild(actions);
+
+        item.appendChild(dot); item.appendChild(flag);
+        container.appendChild(item);
+      });
+    }
+
+    function openEvidence(url, desc, dateStr){
+      const dlg = document.getElementById('evidenceModal');
+      const img = document.getElementById('evidenceImg');
+      const title = document.getElementById('evidenceTitle');
+      const openNew = document.getElementById('openInNew');
+      img.src = url; img.alt = desc || 'Evidence image';
+      title.textContent = `Evidence — ${dateStr}`;
+      openNew.href = url;
+      if(typeof dlg.showModal === 'function') dlg.showModal();
+      else alert('Your browser does not support modals. Image will open in a new tab.');
+    }
+
+    document.getElementById('closeModal').addEventListener('click',()=>{
+      document.getElementById('evidenceModal').close();
+    });
+    document.getElementById('reset').addEventListener('click',()=>{
+      document.getElementById('q').value='';
+      document.getElementById('start').value='';
+      document.getElementById('end').value='';
+      init();
+    });
+    ['q','start','end'].forEach(id=>{
+      document.getElementById(id).addEventListener('input', ()=> buildTimeline(window.__rows||[]));
+    });
+
+    async function init(){
+      try{
+        const rows = await fetchRows();
+        window.__rows = rows; // cache
+        buildTimeline(rows);
+      }catch(err){
+        console.error(err);
+        document.getElementById('empty').hidden = false;
+        document.getElementById('empty').textContent = 'Failed to load data. Check API key / permissions.';
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
