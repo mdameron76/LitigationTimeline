@@ -29,26 +29,31 @@
     .timeline{position:relative; min-height:600px; padding:20px 0}
     .track{
       position:absolute; top:0; bottom:0; left:50%; transform:translateX(-50%);
-      width:12px; border-radius:999px;
+      width:40px; border-radius:999px;
       background:linear-gradient(180deg,var(--track) 0%, var(--track2) 100%);
       box-shadow:inset 0 -2px 0 rgba(0,0,0,.15), 0 6px 20px rgba(0,0,0,.25);
     }
     .ticks{position:absolute; left:50%; transform:translateX(-50%); top:0; bottom:0; width:1px}
-    .tick{position:absolute; left:-12px; width:24px; height:1px; background:#ffffff30}
-    .tick span{position:absolute; left:28px; top:-8px; font-size:12px; color:var(--muted)}
+    .tick{position:absolute; left:-20px; width:40px; height:1px; background:transparent}
+    .tick span{
+      position:absolute; left:7px; top:-10px; font-size:8px; color:#ffffff; font-weight:600; 
+      text-align:center; width:26px; height:14px; line-height:14px;
+      background:rgba(0,0,0,0.4); border-radius:7px; border:1px solid rgba(255,255,255,0.2);
+    }
 
     .items{position:relative}
     .item{
       position:absolute; width:min(42%, 460px);
     }
-    .item.left{left:calc(50% - 24px); transform:translateX(-100%);}
-    .item.right{left:calc(50% + 24px);}
+    .item.left{left:calc(50% - 30px); transform:translateX(-100%);}
+    .item.right{left:calc(50% + 30px);}
     .flag{
       background:#1b2030;border:1px solid #2a3144;border-radius:14px;padding:12px;
       box-shadow:0 8px 20px rgba(0,0,0,.35)
     }
     .date{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.2px}
     .title{margin-top:4px;font-weight:700;line-height:1.35}
+    .notes{margin-top:6px;font-size:11px;color:#8892a4;font-style:italic;line-height:1.4}
     .actions{margin-top:8px;display:flex;gap:10px;flex-wrap:wrap}
     .pill{font-size:12px;font-weight:700;padding:6px 8px;border-radius:999px;border:1px solid #2a3144;color:var(--good);cursor:pointer;background:transparent;text-decoration:none}
     .pill:hover{border-color:#3d4761}
@@ -79,7 +84,7 @@
 <body>
   <div class="wrap">
     <h1>Litigation Timeline</h1>
-    <div class="hint">Columns required in Google Sheet: <b>Date</b>, <b>Description</b>, <b>EvidenceLink</b>, <b>EventType</b>, <b>Color</b>.</div>
+    <div class="hint">Columns required in Google Sheet: <b>Date</b>, <b>Description</b>, <b>EvidenceLink</b>, <b>EventType</b>, <b>Color</b>, <b>Notes</b>.</div>
 
     <div id="eventSummary" class="event-summary" hidden>
       <h3>Event Summary</h3>
@@ -119,7 +124,7 @@
       mode: 'api', // 'api' | 'csv'
       SHEET_ID: '1fL-jFMsPJGHaM0M-KuT-3FEQ_gpzL8zSenNZWoImcKU',
       API_KEY: 'AIzaSyD-Pld1_Lef3N8bqwU6DVkqkDja73fnY2E',
-      RANGE: 'Sheet1!A:E',
+      RANGE: 'Sheet1!A:F',
       PUBLISHED_CSV_URL: ''   // only if mode === 'csv'
     };
 
@@ -150,14 +155,16 @@
           Description: header.findIndex(h => /desc/i.test(h)),
           EvidenceLink: header.findIndex(h => /evidence/i.test(h)),
           EventType: header.findIndex(h => /event.*type/i.test(h)),
-          Color: header.findIndex(h => /color/i.test(h))
+          Color: header.findIndex(h => /color/i.test(h)),
+          Notes: header.findIndex(h => /notes/i.test(h))
         };
         return rows.map(r => ({
           Date: r[idx.Date] || '',
           Description: r[idx.Description] || '',
           EvidenceLink: r[idx.EvidenceLink] || '',
           EventType: r[idx.EventType] || '',
-          Color: r[idx.Color] || ''
+          Color: r[idx.Color] || '',
+          Notes: r[idx.Notes] || ''
         }));
       } else {
         if(!CONFIG.PUBLISHED_CSV_URL) return [];
@@ -170,7 +177,8 @@
           Description: header.findIndex(h => /desc/i.test(h)),
           EvidenceLink: header.findIndex(h => /evidence/i.test(h)),
           EventType: header.findIndex(h => /event.*type/i.test(h)),
-          Color: header.findIndex(h => /color/i.test(h))
+          Color: header.findIndex(h => /color/i.test(h)),
+          Notes: header.findIndex(h => /notes/i.test(h))
         };
         return lines.map(line => {
           const parts = line.split(',');
@@ -179,7 +187,8 @@
             Description: parts[idx.Description] || '',
             EvidenceLink: parts[idx.EvidenceLink] || '',
             EventType: parts[idx.EventType] || '',
-            Color: parts[idx.Color] || ''
+            Color: parts[idx.Color] || '',
+            Notes: parts[idx.Notes] || ''
           };
         });
       }
@@ -236,9 +245,10 @@
       const items = raw.map(r => ({
         date: toDate(r.Date),
         desc: (r.Description || '').trim(),
-        link: (r.EvidenceLink || '').trim(),
+        links: (r.EvidenceLink || '').trim().split(',').map(l => l.trim()).filter(l => l),
         eventType: (r.EventType || '').trim(),
-        color: (r.Color || '').trim()
+        color: (r.Color || '').trim(),
+        notes: (r.Notes || '').trim()
       }))
       .filter(x => x.date)
       .sort((a,b) => a.date - b.date);
@@ -271,20 +281,36 @@
       if(needed > height) height = needed;
       tl.style.minHeight = height + 'px';
 
-      // --- Year ticks down the center line ---
-      const y0 = min.getFullYear();
-      const y1 = max.getFullYear();
-      for(let y=y0; y<=y1; y++){
-        const yDate = new Date(y,0,1);
-        let yPos = Math.round(((yDate - min) / span) * height);
-        yPos = Math.max(0, Math.min(height, yPos));
+      // --- Monthly ticks down the center line ---
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const startYear = min.getFullYear();
+      const startMonth = min.getMonth();
+      const endYear = max.getFullYear();
+      const endMonth = max.getMonth();
+      
+      let currentYear = startYear;
+      let currentMonth = startMonth;
+      
+      while(currentYear <= endYear){
+        if(currentYear === endYear && currentMonth > endMonth) break;
+        
+        const monthDate = new Date(currentYear, currentMonth, 1);
+        let monthPos = Math.round(((monthDate - min) / span) * height);
+        monthPos = Math.max(0, Math.min(height, monthPos));
+        
         const tick = document.createElement('div');
         tick.className = 'tick';
-        tick.style.top = yPos + 'px';
+        tick.style.top = monthPos + 'px';
         const label = document.createElement('span');
-        label.textContent = y;
+        label.textContent = monthNames[currentMonth];
         tick.appendChild(label);
         ticksEl.appendChild(tick);
+        
+        currentMonth++;
+        if(currentMonth > 11){
+          currentMonth = 0;
+          currentYear++;
+        }
       }
 
       // --- Render items (alternate left/right) ---
@@ -297,6 +323,11 @@
 
         const flag = document.createElement('div');
         flag.className = 'flag';
+        
+        // Apply custom color as left border accent if provided
+        if(ev.color && /^#[0-9A-Fa-f]{6}$/.test(ev.color)){
+          flag.style.borderLeft = `8px solid ${ev.color}`;
+        }
 
         const d = document.createElement('div');
         d.className = 'date';
@@ -309,17 +340,30 @@
         const actions = document.createElement('div');
         actions.className = 'actions';
 
-        if(ev.link){
-          const a = document.createElement('a');
-          a.href = '#';
-          a.className = 'pill';
-          a.textContent = 'View evidence';
-          a.addEventListener('click', e => { e.preventDefault(); openEvidence(ev.link, ev.desc, d.textContent); });
-          actions.appendChild(a);
+        // Add notes if they exist
+        if(ev.notes){
+          const notes = document.createElement('div');
+          notes.className = 'notes';
+          notes.textContent = ev.notes;
+          flag.appendChild(d);
+          flag.appendChild(title);
+          flag.appendChild(notes);
+        } else {
+          flag.appendChild(d);
+          flag.appendChild(title);
         }
 
-        flag.appendChild(d);
-        flag.appendChild(title);
+        if(ev.links && ev.links.length > 0){
+          ev.links.forEach((link, index) => {
+            const a = document.createElement('a');
+            a.href = '#';
+            a.className = 'pill';
+            a.textContent = ev.links.length === 1 ? 'View evidence' : `View evidence ${index + 1}`;
+            a.addEventListener('click', e => { e.preventDefault(); openEvidence(link, ev.desc, d.textContent); });
+            actions.appendChild(a);
+          });
+        }
+
         flag.appendChild(actions);
         item.appendChild(flag);
         itemsEl.appendChild(item);
